@@ -16,12 +16,9 @@ import (
 )
 
 func main() {
-	logger, logFile, err := initializeLogger()
+	logger, closeLogger, err := initializeLogger()
 	if err != nil {
 		log.Fatalf("failed to initialize logger: %v", err)
-	}
-	if logFile != nil {
-		defer logFile.Close()
 	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -30,12 +27,14 @@ func main() {
 	dataDir := flag.String("data", "./data", "directory to store data")
 	flag.Parse()
 
-	status := run(ctx, cancel, logger, *httpPort, *dataDir)
+	status := run(ctx, cancel, logger, closeLogger, *httpPort, *dataDir)
 	cancel()
 	os.Exit(status)
 }
 
-func run(ctx context.Context, cancel context.CancelFunc, logger *log.Logger, httpPort int, dataDir string) int {
+func run(ctx context.Context, cancel context.CancelFunc, logger *log.Logger, closeLogger func(), httpPort int, dataDir string) int {
+	defer closeLogger()
+
 	st, err := store.New(dataDir)
 	if err != nil {
 		logger.Printf("failed to create store: %v\n", err)
@@ -75,10 +74,10 @@ func requestLogger(logger *log.Logger) func(http.Handler) http.Handler {
 	}
 }
 
-func initializeLogger() (*log.Logger, *os.File, error) {
+func initializeLogger() (*log.Logger, func(), error) {
 	logFilePath := os.Getenv("LINKO_LOG_FILE")
 	if logFilePath == "" {
-		return log.New(os.Stderr, "", log.LstdFlags), nil, nil
+		return log.New(os.Stderr, "", log.LstdFlags), func() {}, nil
 	}
 
 	accessFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
@@ -87,5 +86,12 @@ func initializeLogger() (*log.Logger, *os.File, error) {
 	}
 
 	w := bufio.NewWriterSize(io.MultiWriter(os.Stderr, accessFile), 8192)
-	return log.New(w, "", log.LstdFlags), accessFile, nil
+	logger := log.New(w, "", log.LstdFlags)
+
+	closeFn := func() {
+		_ = w.Flush()
+		_ = accessFile.Close()
+	}
+
+	return logger, closeFn, nil
 }
