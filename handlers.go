@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"net/url"
 	"strings"
@@ -45,13 +44,13 @@ func (s *server) handlerShortenLink(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "missing url parameter", http.StatusBadRequest)
 		return
 	}
-	log.Printf("Shortening URL: %s\n", longURL)
+	s.logger.Printf("Shortening URL: %s\n", longURL)
 	u, err := url.Parse(longURL)
 	if err != nil || u.Scheme == "" || u.Host == "" {
 		http.Error(w, "invalid URL: must include scheme (http/https) and host", http.StatusBadRequest)
 		return
 	}
-	log.Printf("Parsed URL: scheme=%s, host=%s\n", u.Scheme, u.Host)
+	s.logger.Printf("Parsed URL: scheme=%s, host=%s\n", u.Scheme, u.Host)
 	if err := checkDestination(longURL); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
@@ -61,7 +60,7 @@ func (s *server) handlerShortenLink(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "failed to shorten URL", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Generated short code: %s for URL: %s\n", shortCode, longURL)
+	s.logger.Printf("Generated short code: %s for URL: %s\n", shortCode, longURL)
 	w.Header().Set("Content-Type", "text/plain")
 	w.WriteHeader(http.StatusCreated)
 	io.WriteString(w, shortCode)
@@ -73,7 +72,7 @@ func (s *server) handlerRedirect(w http.ResponseWriter, r *http.Request) {
 		if errors.Is(err, store.ErrNotFound) {
 			http.Error(w, "not found", http.StatusNotFound)
 		} else {
-			log.Printf("failed to lookup URL: %v\n", err)
+			s.logger.Printf("failed to lookup URL: %v\n", err)
 			http.Error(w, "internal server error", http.StatusInternalServerError)
 		}
 		return
@@ -94,7 +93,7 @@ func (s *server) handlerRedirect(w http.ResponseWriter, r *http.Request) {
 func (s *server) handlerListURLs(w http.ResponseWriter, r *http.Request) {
 	codes, err := s.store.List(r.Context())
 	if err != nil {
-		log.Printf("failed to list URLs: %v\n", err)
+		s.logger.Printf("failed to list URLs: %v\n", err)
 		http.Error(w, "failed to list URLs", http.StatusInternalServerError)
 		return
 	}
