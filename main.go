@@ -3,18 +3,26 @@ package main
 import (
 	"context"
 	"flag"
+	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
+	"bufio"
 
 	"boot.dev/linko/internal/store"
 )
 
 func main() {
-	logger := log.New(os.Stderr, "DEBUG: ", log.LstdFlags)
+	logger, logFile, err := initializeLogger()
+	if err != nil {
+		log.Fatalf("failed to initialize logger: %v", err)
+	}
+	if logFile != nil {
+		defer logFile.Close()
+	}
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
@@ -65,4 +73,19 @@ func requestLogger(logger *log.Logger) func(http.Handler) http.Handler {
 			logger.Printf("Served request: %s %s\n", r.Method, r.URL.Path)
 		})
 	}
+}
+
+func initializeLogger() (*log.Logger, *os.File, error) {
+	logFilePath := os.Getenv("LINKO_LOG_FILE")
+	if logFilePath == "" {
+		return log.New(os.Stderr, "", log.LstdFlags), nil, nil
+	}
+
+	accessFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	w := bufio.NewWriterSize(io.MultiWriter(os.Stderr, accessFile), 8192)
+	return log.New(w, "", log.LstdFlags), accessFile, nil
 }
