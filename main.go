@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"log"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -55,4 +56,13 @@ func run(ctx context.Context, cancel context.CancelFunc, logger *log.Logger, htt
 		return 1
 	}
 	return 0
+}
+
+func requestLogger(logger *log.Logger) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			next.ServeHTTP(w, r)
+			logger.Printf("Served request: %s %s\n", r.Method, r.URL.Path)
+		})
+	}
 }
