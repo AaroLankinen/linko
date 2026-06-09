@@ -70,7 +70,7 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			next.ServeHTTP(w, r)
-			logger.Info("Served request", "method", r.Method, "path", r.URL.Path, "client_ip", r.RemoteAddr, "user_agent", r.UserAgent())
+			logger.Info("Served request", "method", r.Method, "path", r.URL.Path, "client_ip", r.RemoteAddr)
 		})
 	}
 }
@@ -92,7 +92,7 @@ func initializeLogger() (*slog.Logger, func(), error) {
 	}
 
 	w := bufio.NewWriterSize(accessFile, 8192)
-	fileHandler := slog.NewTextHandler(w, &slog.HandlerOptions{
+	fileHandler := slog.NewJSONHandler(w, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	})
 
