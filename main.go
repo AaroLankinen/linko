@@ -16,6 +16,7 @@ import (
 	pkgerr "github.com/pkg/errors"
 
 	linkoerr "boot.dev/linko/internal"
+	"boot.dev/linko/internal/build"
 	"boot.dev/linko/internal/store"
 )
 
@@ -35,6 +36,11 @@ func main() {
 		slog.Error("failed to initialize logger", "error", err)
 		os.Exit(1)
 	}
+
+	logger = logger.With(
+		slog.String("git_sha", build.GitSHA),
+		slog.String("build_time", build.BuildTime),
+	)
 
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 
