@@ -15,13 +15,18 @@ import (
 
 	pkgerr "github.com/pkg/errors"
 
-	"boot.dev/linko/internal"
+	linkoerr "boot.dev/linko/internal"
 	"boot.dev/linko/internal/store"
 )
 
 type stackTracer interface {
 	error
 	StackTrace() pkgerr.StackTrace
+}
+
+type multiError interface {
+	error
+	Unwrap() []error
 }
 
 func main() {
@@ -124,20 +129,32 @@ func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 		if !ok {
 			return a
 		}
-		var attrs []slog.Attr
-		attrs = append(attrs, slog.Attr{
-			Key:   "message",
-			Value: slog.StringValue(err.Error()),
-		})
-		if stackErr, ok := errors.AsType[stackTracer](err); ok {
-			attrs = append(attrs, slog.Attr{
-				Key:   "stack_trace",
-				Value: slog.StringValue(fmt.Sprintf("%+v", stackErr.StackTrace())),
-			})
+		if multiErr, ok := errors.AsType[multiError](err); ok {
+			var subAttrs []slog.Attr
+			for i, subErr := range multiErr.Unwrap() {
+				key := fmt.Sprintf("error_%d", i+1)
+				subAttrs = append(subAttrs, slog.GroupAttrs(key, errorToAttrs(subErr)...))
+			}
+			return slog.GroupAttrs("errors", subAttrs...)
 		}
-		extraAttrs := linkoerr.Attrs(err)
-		attrs = append(attrs, extraAttrs...)
-		return slog.GroupAttrs("error", attrs...)
+		return slog.GroupAttrs("error", errorToAttrs(err)...)
 	}
 	return a
+}
+
+func errorToAttrs(err error) []slog.Attr {
+	var attrs []slog.Attr
+	attrs = append(attrs, slog.Attr{
+		Key:   "message",
+		Value: slog.StringValue(err.Error()),
+	})
+	if stackErr, ok := errors.AsType[stackTracer](err); ok {
+		attrs = append(attrs, slog.Attr{
+			Key:   "stack_trace",
+			Value: slog.StringValue(fmt.Sprintf("%+v", stackErr.StackTrace())),
+		})
+	}
+	extraAttrs := linkoerr.Attrs(err)
+	attrs = append(attrs, extraAttrs...)
+	return attrs
 }
