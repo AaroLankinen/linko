@@ -42,6 +42,9 @@ func (s *server) authMiddleware(next http.Handler) http.Handler {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
+		if logCtx, ok := r.Context().Value(logContextKey).(*LogContext); ok {
+			logCtx.Username = username
+		}
 		r = r.WithContext(context.WithValue(r.Context(), UserContextKey, username))
 		next.ServeHTTP(w, r)
 	})
