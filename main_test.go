@@ -70,14 +70,15 @@ func Test_requestLogger_Username(t *testing.T) {
 	authMiddleware := s.authMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
-	loggedHandler := requestLoggerMiddleware(authMiddleware)
+	loggedHandler := requestID(requestLoggerMiddleware(authMiddleware))
 
 	req := httptest.NewRequest("GET", "http://lin.ko/api/stats", nil)
 	req.SetBasicAuth("frodo", "ofTheNineFingers")
+	req.Header.Set("X-Request-ID", "test-request-id-123")
 	rr := httptest.NewRecorder()
 	loggedHandler.ServeHTTP(rr, req)
 
-	const expectedLogString = `time=2023-10-01T12:34:57.000Z level=INFO msg="Served request" method=GET path=/api/stats client_ip=192.0.2.1:1234 duration=0s request_body_bytes=0 response_status=200 response_body_bytes=0 user=frodo` + "\n" +
+	const expectedLogString = `time=2023-10-01T12:34:57.000Z level=INFO msg="Served request" method=GET path=/api/stats client_ip=192.0.2.1:1234 duration=0s request_body_bytes=0 response_status=200 response_body_bytes=0 user=frodo request_id=test-request-id-123` + "\n" +
 		`time=2023-10-01T12:34:57.000Z level=INFO msg="Served user" username=frodo` + "\n"
 
 	if logBuffer.String() != expectedLogString {
