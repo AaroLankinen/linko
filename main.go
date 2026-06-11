@@ -15,11 +15,12 @@ import (
 	"syscall"
 	"time"
 
-	pkgerr "github.com/pkg/errors"
-
 	linkoerr "boot.dev/linko/internal"
 	"boot.dev/linko/internal/build"
 	"boot.dev/linko/internal/store"
+	"github.com/lmittmann/tint"
+	"github.com/mattn/go-isatty"
+	pkgerr "github.com/pkg/errors"
 )
 
 type stackTracer interface {
@@ -232,10 +233,18 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 func initializeLogger() (*slog.Logger, func(), error) {
 	logFilePath := os.Getenv("LINKO_LOG_FILE")
 
-	stderrHandler := slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
-		Level:       slog.LevelDebug,
-		ReplaceAttr: replaceAttr,
-	})
+	var stderrHandler slog.Handler
+	if isatty.IsTerminal(os.Stderr.Fd()) || isatty.IsCygwinTerminal(os.Stderr.Fd()) {
+		stderrHandler = tint.NewHandler(os.Stderr, &tint.Options{
+			Level:       slog.LevelDebug,
+			ReplaceAttr: replaceAttr,
+		})
+	} else {
+		stderrHandler = slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{
+			Level:       slog.LevelDebug,
+			ReplaceAttr: replaceAttr,
+		})
+	}
 
 	if logFilePath == "" {
 		return slog.New(stderrHandler), func() {}, nil

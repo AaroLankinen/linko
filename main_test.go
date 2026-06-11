@@ -6,8 +6,11 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/lmittmann/tint"
 )
 
 func Test_requestLogger(t *testing.T) {
@@ -87,6 +90,22 @@ func Test_requestLogger_Username(t *testing.T) {
 
 	if rr.Code != http.StatusOK {
 		t.Errorf("Unexpected status code. Got: %d, Expected: %d", rr.Code, http.StatusOK)
+	}
+}
+
+func Test_ColorizedOutput(t *testing.T) {
+	logBuffer := &bytes.Buffer{}
+	handler := tint.NewHandler(logBuffer, &tint.Options{
+		Level:   slog.LevelInfo,
+		NoColor: false,
+	})
+	logger := slog.New(handler)
+
+	logger.Info("this is a test log message", "key", "val")
+
+	output := logBuffer.String()
+	if !strings.Contains(output, "\x1b[") {
+		t.Errorf("Expected log output to contain ANSI color escape sequences, got: %q", output)
 	}
 }
 
