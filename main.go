@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"context"
 	"crypto/rand"
 	"errors"
@@ -21,6 +20,7 @@ import (
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	pkgerr "github.com/pkg/errors"
+	"gopkg.in/natefinch/lumberjack.v2"
 )
 
 type stackTracer interface {
@@ -250,13 +250,13 @@ func initializeLogger() (*slog.Logger, func(), error) {
 		return slog.New(stderrHandler), func() {}, nil
 	}
 
-	accessFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		return nil, nil, err
+	jackLogger := &lumberjack.Logger{
+		Filename:   logFilePath,
+		MaxSize:    1, // megabytes
+		Compress:   true,
 	}
 
-	w := bufio.NewWriterSize(accessFile, 8192)
-	fileHandler := slog.NewJSONHandler(w, &slog.HandlerOptions{
+	fileHandler := slog.NewJSONHandler(jackLogger, &slog.HandlerOptions{
 		Level:       slog.LevelInfo,
 		ReplaceAttr: replaceAttr,
 	})
@@ -265,8 +265,7 @@ func initializeLogger() (*slog.Logger, func(), error) {
 	logger := slog.New(multiHandler)
 
 	closeFn := func() {
-		_ = w.Flush()
-		_ = accessFile.Close()
+		_ = jackLogger.Close()
 	}
 
 	return logger, closeFn, nil
