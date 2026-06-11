@@ -46,6 +46,44 @@ const logContextKey contextKey = "log_context"
 
 type LogContext struct {
 	Username string
+	Error    error
+}
+
+func httpError(ctx context.Context, w http.ResponseWriter, status int, err error) {
+	if logCtx, ok := ctx.Value(logContextKey).(*LogContext); ok {
+		logCtx.Error = err
+	}
+	http.Error(w, err.Error(), status)
+}
+
+type httpInternalError struct {
+	internalErr error
+	publicMsg   string
+}
+
+func (e *httpInternalError) Error() string {
+	return e.publicMsg
+}
+
+func (e *httpInternalError) StackTrace() pkgerr.StackTrace {
+	if tracer, ok := e.internalErr.(stackTracer); ok {
+		return tracer.StackTrace()
+	}
+	return nil
+}
+
+func (e *httpInternalError) Unwrap() error {
+	return e.internalErr
+}
+
+func internalError(internalErr error, publicMsg string) error {
+	if publicMsg == "" {
+		publicMsg = "Internal Server Error"
+	}
+	return &httpInternalError{
+		internalErr: internalErr,
+		publicMsg:   publicMsg,
+	}
 }
 
 func (w *spyResponseWriter) Write(p []byte) (int, error) {
@@ -158,6 +196,9 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 			}
 			if logCtx.Username != "" {
 				args = append(args, "user", logCtx.Username)
+			}
+			if logCtx.Error != nil {
+				args = append(args, "error", logCtx.Error)
 			}
 
 			logger.Info("Served request", args...)
