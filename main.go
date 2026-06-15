@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -209,7 +211,7 @@ func requestLogger(logger *slog.Logger) func(http.Handler) http.Handler {
 			args := []any{
 				"method", r.Method,
 				"path", r.URL.Path,
-				"client_ip", r.RemoteAddr,
+				"client_ip", redactIP(r.RemoteAddr),
 				slog.Duration("duration", time.Since(start)),
 				"request_body_bytes", sr.bytesRead,
 				"response_status", statusCode,
@@ -310,3 +312,29 @@ func errorToAttrs(err error) []slog.Attr {
 	attrs = append(attrs, extraAttrs...)
 	return attrs
 }
+
+func redactIP(addr string) string {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		// If there is no port, check if it's a raw IPv4 address
+		ip := net.ParseIP(addr)
+		if ip != nil && ip.To4() != nil {
+			parts := strings.Split(addr, ".")
+			if len(parts) == 4 {
+				parts[3] = "x"
+				return strings.Join(parts, ".")
+			}
+		}
+		return addr
+	}
+	ip := net.ParseIP(host)
+	if ip != nil && ip.To4() != nil {
+		parts := strings.Split(host, ".")
+		if len(parts) == 4 {
+			parts[3] = "x"
+			return strings.Join(parts, ".")
+		}
+	}
+	return addr
+}
+
