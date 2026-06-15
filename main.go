@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"strings"
 	"syscall"
 	"time"
@@ -277,23 +278,77 @@ func initializeLogger() (*slog.Logger, func(), error) {
 	return logger, closeFn, nil
 }
 
+var sensitiveKeys = map[string]bool{
+	"password":     true,
+	"key":          true,
+	"apikey":       true,
+	"secret":       true,
+	"pin":          true,
+	"user":         true,
+	"creditcardno": true,
+}
+
+var (
+	urlPasswordRegex = regexp.MustCompile(`(?i)([a-z0-9+.-]+://[^/:]+:)([^@/]+)(@)`)
+	kvPasswordRegex  = regexp.MustCompile(`(?i)\b(password|key|apikey|secret|pin|user|creditcardno)\b\s*=\s*([^&?\s"';]+)`)
+)
+
+func isSensitiveKey(key string) bool {
+	return sensitiveKeys[strings.ToLower(key)]
+}
+
+func redactEmbeddedSecrets(val string) string {
+	val = urlPasswordRegex.ReplaceAllString(val, "${1}[REDACTED]${3}")
+	val = kvPasswordRegex.ReplaceAllString(val, "${1}=[REDACTED]")
+	return val
+}
+
+func sanitizeAttr(a slog.Attr) slog.Attr {
+	if isSensitiveKey(a.Key) && a.Value.Kind() != slog.KindGroup {
+		return slog.String(a.Key, "[REDACTED]")
+	}
+	if a.Value.Kind() == slog.KindString {
+		str := a.Value.String()
+		redacted := redactEmbeddedSecrets(str)
+		if redacted != str {
+			return slog.String(a.Key, redacted)
+		}
+	} else if a.Value.Kind() == slog.KindAny {
+		if str, ok := a.Value.Any().(string); ok {
+			redacted := redactEmbeddedSecrets(str)
+			if redacted != str {
+				return slog.String(a.Key, redacted)
+			}
+		}
+	}
+	return a
+}
+
+func sanitizeAttrs(attrs []slog.Attr) []slog.Attr {
+	sanitized := make([]slog.Attr, len(attrs))
+	for i, a := range attrs {
+		sanitized[i] = sanitizeAttr(a)
+	}
+	return sanitized
+}
+
 func replaceAttr(groups []string, a slog.Attr) slog.Attr {
 	if a.Key == "error" {
 		err, ok := a.Value.Any().(error)
 		if !ok {
-			return a
+			return sanitizeAttr(a)
 		}
 		if multiErr, ok := errors.AsType[multiError](err); ok {
 			var subAttrs []slog.Attr
 			for i, subErr := range multiErr.Unwrap() {
 				key := fmt.Sprintf("error_%d", i+1)
-				subAttrs = append(subAttrs, slog.GroupAttrs(key, errorToAttrs(subErr)...))
+				subAttrs = append(subAttrs, slog.GroupAttrs(key, sanitizeAttrs(errorToAttrs(subErr))...))
 			}
 			return slog.GroupAttrs("errors", subAttrs...)
 		}
-		return slog.GroupAttrs("error", errorToAttrs(err)...)
+		return slog.GroupAttrs("error", sanitizeAttrs(errorToAttrs(err))...)
 	}
-	return a
+	return sanitizeAttr(a)
 }
 
 func errorToAttrs(err error) []slog.Attr {

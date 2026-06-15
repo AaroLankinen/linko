@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -24,7 +25,7 @@ func Test_requestLogger(t *testing.T) {
 			if a.Key == "duration" {
 				return slog.Duration("duration", 0)
 			}
-			return a
+			return replaceAttr(groups, a)
 		},
 	}))
 
@@ -63,7 +64,7 @@ func Test_requestLogger_Username(t *testing.T) {
 			if a.Key == "duration" {
 				return slog.Duration("duration", 0)
 			}
-			return a
+			return replaceAttr(groups, a)
 		},
 	}))
 
@@ -81,7 +82,7 @@ func Test_requestLogger_Username(t *testing.T) {
 	rr := httptest.NewRecorder()
 	loggedHandler.ServeHTTP(rr, req)
 
-	const expectedLogString = `time=2023-10-01T12:34:57.000Z level=INFO msg="Served request" method=GET path=/api/stats client_ip=192.0.2.x duration=0s request_body_bytes=0 response_status=200 response_body_bytes=0 user=frodo request_id=test-request-id-123` + "\n" +
+	const expectedLogString = `time=2023-10-01T12:34:57.000Z level=INFO msg="Served request" method=GET path=/api/stats client_ip=192.0.2.x duration=0s request_body_bytes=0 response_status=200 response_body_bytes=0 user=[REDACTED] request_id=test-request-id-123` + "\n" +
 		`time=2023-10-01T12:34:57.000Z level=INFO msg="Served user" username=frodo` + "\n"
 
 	if logBuffer.String() != expectedLogString {
@@ -133,5 +134,46 @@ func Test_redactIP(t *testing.T) {
 		})
 	}
 }
+
+func Test_replaceAttr_SensitiveAndEmbedded(t *testing.T) {
+	tests := []struct {
+		key      string
+		val      any
+		expected any
+	}{
+		// 1. Sensitive Keys (exact and different cases)
+		{"password", "my-secret-password", "[REDACTED]"},
+		{"Password", "my-secret-password", "[REDACTED]"},
+		{"key", "some-ssh-key", "[REDACTED]"},
+		{"KEY", "some-ssh-key", "[REDACTED]"},
+		{"apikey", "api-12345", "[REDACTED]"},
+		{"secret", "secret-value", "[REDACTED]"},
+		{"pin", 1234, "[REDACTED]"},
+		{"user", "frodo", "[REDACTED]"},
+		{"creditcardno", "1234-5678-9012-3456", "[REDACTED]"},
+		// 2. Non-sensitive keys (should not be redacted)
+		{"username", "frodo", "frodo"},
+		{"keyboard", "mechanical", "mechanical"},
+		// 3. Embedded secrets in URL values
+		{"connection_url", "postgres://user:password123@localhost:5432/db", "postgres://user:[REDACTED]@localhost:5432/db"},
+		{"msg", "failed to connect to mongodb://admin:secretPass!@host:27017/", "failed to connect to mongodb://admin:[REDACTED]@host:27017/"},
+		// 4. Embedded secrets in key-value string values
+		{"error_message", "db connection failed: password=my-pass user=postgres host=localhost", "db connection failed: password=[REDACTED] user=[REDACTED] host=localhost"},
+		{"info", "apikey=xyz&secret=abc", "apikey=[REDACTED]&secret=[REDACTED]"},
+		{"trace", "something failed at pin=5555 key=123", "something failed at pin=[REDACTED] key=[REDACTED]"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.key+"_"+fmt.Sprint(tc.val), func(t *testing.T) {
+			attr := slog.Any(tc.key, tc.val)
+			gotAttr := replaceAttr(nil, attr)
+			gotVal := gotAttr.Value.Any()
+			if gotVal != tc.expected {
+				t.Errorf("replaceAttr(nil, %s=%v) = %v; want %v", tc.key, tc.val, gotVal, tc.expected)
+			}
+		})
+	}
+}
+
 
 
