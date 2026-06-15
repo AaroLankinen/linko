@@ -1,3 +1,6 @@
+volumes:
+  grafana_data:
+
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -9,3 +12,11 @@ services:
     image: prom/node-exporter:latest
     ports:
       - "9100:9100"
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana_data:/var/lib/grafana
