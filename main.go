@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/signal"
 	"regexp"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -23,6 +24,8 @@ import (
 	"github.com/lmittmann/tint"
 	"github.com/mattn/go-isatty"
 	pkgerr "github.com/pkg/errors"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
@@ -52,6 +55,16 @@ const logContextKey contextKey = "log_context"
 type LogContext struct {
 	Username string
 	Error    error
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
 }
 
 func httpError(ctx context.Context, w http.ResponseWriter, status int, err error) {
@@ -258,9 +271,9 @@ func initializeLogger() (*slog.Logger, func(), error) {
 	}
 
 	jackLogger := &lumberjack.Logger{
-		Filename:   logFilePath,
-		MaxSize:    1, // megabytes
-		Compress:   true,
+		Filename: logFilePath,
+		MaxSize:  1, // megabytes
+		Compress: true,
 	}
 
 	fileHandler := slog.NewJSONHandler(jackLogger, &slog.HandlerOptions{
@@ -288,10 +301,20 @@ var sensitiveKeys = map[string]bool{
 	"creditcardno": true,
 }
 
-var (
-	urlPasswordRegex = regexp.MustCompile(`(?i)([a-z0-9+.-]+://[^/:]+:)([^@/]+)(@)`)
-	kvPasswordRegex  = regexp.MustCompile(`(?i)\b(password|key|apikey|secret|pin|user|creditcardno)\b\s*=\s*([^&?\s"';]+)`)
+// httpRequestsTotal counts requests by method, path and status.
+var httpRequestsTotal = promauto.NewCounterVec(
+	prometheus.CounterOpts{
+		Name: "http_requests_total",
+		Help: "Total number of HTTP requests.",
+	},
+	[]string{"method", "path", "status"},
 )
+
+// urlPasswordRegex matches passwords in URLs.
+var urlPasswordRegex = regexp.MustCompile(`(?i)([a-z0-9+.-]+://[^/:]+:)([^@/]+)(@)`)
+
+// kvPasswordRegex matches passwords in key-value pairs.
+var kvPasswordRegex = regexp.MustCompile(`(?i)\b(password|key|apikey|secret|pin|user|creditcardno)\b\s*=\s*([^&?\s"';]+)`)
 
 func isSensitiveKey(key string) bool {
 	return sensitiveKeys[strings.ToLower(key)]
@@ -301,6 +324,25 @@ func redactEmbeddedSecrets(val string) string {
 	val = urlPasswordRegex.ReplaceAllString(val, "${1}[REDACTED]${3}")
 	val = kvPasswordRegex.ReplaceAllString(val, "${1}=[REDACTED]")
 	return val
+}
+
+func metricsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		rec := &statusRecorder{
+			ResponseWriter: w,
+			status:         http.StatusOK,
+		}
+
+		next.ServeHTTP(rec, r)
+
+		path := r.URL.Path
+		method := r.Method
+		status := strconv.Itoa(rec.status)
+
+		httpRequestsTotal.
+			WithLabelValues(method, path, status).
+			Inc()
+	})
 }
 
 func sanitizeAttr(a slog.Attr) slog.Attr {
@@ -392,4 +434,3 @@ func redactIP(addr string) string {
 	}
 	return addr
 }
-

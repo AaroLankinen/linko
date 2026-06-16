@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/lmittmann/tint"
+	"github.com/prometheus/client_golang/prometheus/testutil"
 )
 
 func Test_requestLogger(t *testing.T) {
@@ -172,6 +173,31 @@ func Test_replaceAttr_SensitiveAndEmbedded(t *testing.T) {
 				t.Errorf("replaceAttr(nil, %s=%v) = %v; want %v", tc.key, tc.val, gotVal, tc.expected)
 			}
 		})
+	}
+}
+
+func Test_metricsMiddleware(t *testing.T) {
+	dummyHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusTeapot)
+		_, _ = w.Write([]byte("I'm a teapot"))
+	})
+	handler := metricsMiddleware(dummyHandler)
+
+	req := httptest.NewRequest("POST", "http://lin.ko/test-endpoint", nil)
+	rr := httptest.NewRecorder()
+
+	counter := httpRequestsTotal.WithLabelValues("POST", "/test-endpoint", "418")
+	initialCount := testutil.ToFloat64(counter)
+
+	handler.ServeHTTP(rr, req)
+
+	if rr.Code != http.StatusTeapot {
+		t.Errorf("expected status 418, got %d", rr.Code)
+	}
+
+	finalCount := testutil.ToFloat64(counter)
+	if finalCount != initialCount+1 {
+		t.Errorf("expected counter to increment by 1 (from %f to %f), got %f", initialCount, initialCount+1, finalCount)
 	}
 }
 
