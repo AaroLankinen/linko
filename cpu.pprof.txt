@@ -1,0 +1,35 @@
+File: linko
+Build ID: b03edfd5e3098cb85465a38db53f4c71a990c1b0
+Type: cpu
+Time: 2026-06-16 16:04:18 EEST
+Duration: 30s, Total samples = 7.57s (25.23%)
+Showing nodes accounting for 7.49s, 98.94% of 7.57s total
+Dropped 81 nodes (cum <= 0.04s)
+      flat  flat%   sum%        cum   cum%
+     7.31s 96.57% 96.57%      7.31s 96.57%  golang.org/x/crypto/blowfish.encryptBlock
+     0.10s  1.32% 97.89%      7.41s 97.89%  golang.org/x/crypto/blowfish.ExpandKey
+     0.08s  1.06% 98.94%      0.08s  1.06%  internal/runtime/syscall/linux.Syscall6
+         0     0% 98.94%      0.04s  0.53%  bufio.(*Writer).Flush
+         0     0% 98.94%      7.41s 97.89%  golang.org/x/crypto/bcrypt.GenerateFromPassword
+         0     0% 98.94%      7.41s 97.89%  golang.org/x/crypto/bcrypt.bcrypt
+         0     0% 98.94%      7.41s 97.89%  golang.org/x/crypto/bcrypt.expensiveBlowfishSetup
+         0     0% 98.94%      7.41s 97.89%  golang.org/x/crypto/bcrypt.newFromPassword
+         0     0% 98.94%      0.06s  0.79%  internal/poll.(*FD).Write
+         0     0% 98.94%      0.08s  1.06%  internal/poll.ignoringEINTRIO (inline)
+         0     0% 98.94%      0.04s  0.53%  log/slog.(*Logger).Info
+         0     0% 98.94%      0.04s  0.53%  log/slog.(*Logger).log
+         0     0% 98.94%      7.45s 98.41%  main.(*server).handlerRedirect
+         0     0% 98.94%      0.04s  0.53%  main.checkDestination
+         0     0% 98.94%      7.50s 99.08%  main.newServer.metricsMiddleware.func6
+         0     0% 98.94%      7.50s 99.08%  main.newServer.newServer.requestLogger.func3.func4
+         0     0% 98.94%      7.50s 99.08%  main.newServer.requestID.func5
+         0     0% 98.94%      0.05s  0.66%  net.(*conn).Write
+         0     0% 98.94%      0.05s  0.66%  net.(*netFD).Write
+         0     0% 98.94%      7.46s 98.55%  net/http.(*ServeMux).ServeHTTP
+         0     0% 98.94%      7.53s 99.47%  net/http.(*conn).serve
+         0     0% 98.94%      7.50s 99.08%  net/http.HandlerFunc.ServeHTTP
+         0     0% 98.94%      7.50s 99.08%  net/http.serverHandler.ServeHTTP
+         0     0% 98.94%      0.08s  1.06%  syscall.RawSyscall6
+         0     0% 98.94%      0.08s  1.06%  syscall.Syscall
+         0     0% 98.94%      0.06s  0.79%  syscall.Write (inline)
+         0     0% 98.94%      0.06s  0.79%  syscall.write

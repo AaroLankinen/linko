@@ -1,0 +1,36 @@
+File: linko
+Build ID: b03edfd5e3098cb85465a38db53f4c71a990c1b0
+Type: inuse_space
+Time: 2026-06-16 16:13:44 EEST
+Duration: 30s, Total samples = 4575.12kB 
+Showing nodes accounting for 1741.20kB, 38.06% of 4575.12kB total
+      flat  flat%   sum%        cum   cum%
+ 2613.49kB 57.12% 57.12%  2613.49kB 57.12%  internal/bytealg.MakeNoZero
+ -902.59kB 19.73% 37.40%  -357.92kB  7.82%  compress/flate.NewWriter (inline)
+  544.67kB 11.90% 49.30%   544.67kB 11.90%  compress/flate.(*compressor).initDeflate (inline)
+ -514.38kB 11.24% 38.06%  -514.38kB 11.24%  sync.(*Pool).pinSlow
+         0     0% 38.06%  -357.92kB  7.82%  bufio.(*Writer).Flush
+         0     0% 38.06%   544.67kB 11.90%  compress/flate.(*compressor).init
+         0     0% 38.06%  -357.92kB  7.82%  compress/gzip.(*Writer).Write
+         0     0% 38.06%  -357.92kB  7.82%  github.com/prometheus/client_golang/prometheus/promhttp.HandlerForTransactional.func1
+         0     0% 38.06%  -357.92kB  7.82%  github.com/prometheus/client_golang/prometheus/promhttp.InstrumentHandlerCounter.func1
+         0     0% 38.06%  -357.92kB  7.82%  github.com/prometheus/client_golang/prometheus/promhttp.InstrumentMetricHandler.InstrumentHandlerInFlight.func1
+         0     0% 38.06%  -357.92kB  7.82%  github.com/prometheus/common/expfmt.MetricFamilyToText
+         0     0% 38.06%  -357.92kB  7.82%  github.com/prometheus/common/expfmt.MetricFamilyToText.func1
+         0     0% 38.06%  -357.92kB  7.82%  github.com/prometheus/common/expfmt.NewEncoder.func7
+         0     0% 38.06%  -357.92kB  7.82%  github.com/prometheus/common/expfmt.encoderCloser.Encode
+         0     0% 38.06%  2613.49kB 57.12%  main.(*server).handlerRedirect
+         0     0% 38.06%  2255.57kB 49.30%  main.newServer.metricsMiddleware.func6
+         0     0% 38.06%  2255.57kB 49.30%  main.newServer.newServer.requestLogger.func3.func4
+         0     0% 38.06%  2255.57kB 49.30%  main.newServer.requestID.func5
+         0     0% 38.06%  2255.57kB 49.30%  net/http.(*ServeMux).ServeHTTP
+         0     0% 38.06%  1741.20kB 38.06%  net/http.(*conn).serve
+         0     0% 38.06%  -514.38kB 11.24%  net/http.(*response).finishRequest
+         0     0% 38.06%  2255.57kB 49.30%  net/http.HandlerFunc.ServeHTTP
+         0     0% 38.06%  -514.38kB 11.24%  net/http.putBufioWriter
+         0     0% 38.06%  2255.57kB 49.30%  net/http.serverHandler.ServeHTTP
+         0     0% 38.06%  2613.49kB 57.12%  strings.(*Builder).Grow
+         0     0% 38.06%  2613.49kB 57.12%  strings.(*Builder).grow
+         0     0% 38.06%  2613.49kB 57.12%  strings.Repeat
+         0     0% 38.06%  -514.38kB 11.24%  sync.(*Pool).Put
+         0     0% 38.06%  -514.38kB 11.24%  sync.(*Pool).pin
