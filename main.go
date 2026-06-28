@@ -27,13 +27,14 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 	"go.opentelemetry.io/otel"
-	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"gopkg.in/natefinch/lumberjack.v2"
 )
+
+var tracer = otel.Tracer("boot.dev/linko")
 
 type stackTracer interface {
 	error
@@ -273,25 +274,15 @@ func initTracing(ctx context.Context) (func(context.Context) error, error) {
 		return nil, err
 	}
 
-	res, err := resource.Merge(
-		resource.Default(),
-		resource.NewWithAttributes(
-			"",
-			attribute.String("service.name", "linko"),
-		),
-	)
-	if err != nil {
-		return nil, err
-	}
-
 	tp := sdktrace.NewTracerProvider(
 		sdktrace.WithBatcher(exp,
 			sdktrace.WithBatchTimeout(2*time.Second),
 		),
-		sdktrace.WithResource(res),
+		sdktrace.WithResource(resource.Default()),
 	)
 
 	otel.SetTracerProvider(tp)
+	tracer = tp.Tracer("boot.dev/linko")
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))
 	return tp.Shutdown, nil
 }
